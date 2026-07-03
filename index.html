@@ -372,38 +372,20 @@ function saveStep3T(){
   S.step = 4; renderStep();
 }
 
-/* STEP 4 — 유쾌 코너 */
-const DINNER = ["무조건 고기지요 🥩","시원한 회 한 접시 🐟","면 요리가 진리 🍜","메뉴보다 좋은 자리 배치가 중요합니다","일찍 끝나는 게 최고의 메뉴"];
+/* STEP 4 — 마무리 */
 function renderStep4(){
-  const sel = S.data.dinner || null;
   app.innerHTML = `
   <div class="fade">
     ${progressHTML()}
-    <span class="fun-badge">☀️ 마지막, 유쾌 코너</span>
-    <h1>15일 저녁, 전 교직원 석식!</h1>
-    <p class="sub">워크숍 1일차 저녁은 전 교직원이 함께합니다. 진지한 얘기는 끝났으니 가볍게.</p>
+    <h1>마지막입니다</h1>
     <div class="card">
-      <div class="q-label">Q. 석식에서 제일 기대하는 것은?</div>
-      <div class="choices">
-        ${DINNER.map(d=>`
-          <div class="choice radio ${sel===d?'sel':''}" onclick="pickDinner(this,\`${d}\`)">
-            <span class="mark">●</span>${d}
-          </div>`).join('')}
-      </div>
-    </div>
-    <div class="card">
-      <div class="q-label">2학기를 시작하는 우리에게, 응원 한마디<span class="optional">선택</span></div>
+      <div class="q-label">2학기를 시작하는 우리에게, 한마디<span class="optional">선택</span></div>
       <div class="q-hint">워크숍 자료 마지막 장에 익명으로 실릴 수 있습니다</div>
       <input type="text" id="q_cheer" maxlength="60" placeholder="예) 우리 2학기도 무사히!" value="${S.data.cheer||''}">
     </div>
     <button class="btn" id="submitBtn" onclick="submitSurvey()">제출하기</button>
     <button class="btn btn-ghost" onclick="S.step=3;renderStep()">이전으로</button>
   </div>`;
-}
-function pickDinner(el,d){
-  S.data.dinner = d;
-  document.querySelectorAll('.choice.radio').forEach(c=>c.classList.remove('sel'));
-  el.classList.add('sel');
 }
 
 /* ---------- 제출 ---------- */
@@ -498,12 +480,6 @@ function renderResults(docs){
   const teachers = docs;
   const avgTemp = docs.length ? Math.round(docs.reduce((s,d)=>s+(d.temp||0),0)/docs.length) : 0;
 
-  // 석식 집계
-  const dinnerCount = {};
-  DINNER.forEach(d=>dinnerCount[d]=0);
-  docs.forEach(d=>{ if(d.dinner && dinnerCount[d.dinner]!==undefined) dinnerCount[d.dinner]++; });
-  const maxDinner = Math.max(1,...Object.values(dinnerCount));
-
   const respHTML = docs.map(d=>{
     const items = [];
     if(d.good) items.push(["좋았던 것 · 계속하고 싶은 것",d.good]);
@@ -529,15 +505,6 @@ function renderResults(docs){
     <div class="stat-grid" style="grid-template-columns:1fr 1fr">
       <div class="stat"><div class="num">${docs.length}</div><div class="lbl">전체 응답</div></div>
       <div class="stat"><div class="num">${avgTemp}°C</div><div class="lbl">평균 체감온도</div></div>
-    </div>
-    <div class="card">
-      <div class="q-label" style="margin-bottom:4px">🍽 석식 기대 투표</div>
-      ${DINNER.map(d=>`
-        <div class="bar-row">
-          <div class="name">${d}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${dinnerCount[d]/maxDinner*100}%"></div></div>
-          <div class="cnt">${dinnerCount[d]}</div>
-        </div>`).join('')}
     </div>
     <h1 style="font-size:19px;margin-top:28px">업무별 모아보기 <span style="font-size:12.5px;color:var(--muted);font-weight:600">결과보고 취합용</span></h1>
     ${DUTIES.map(du=>{
