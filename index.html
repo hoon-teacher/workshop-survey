@@ -195,7 +195,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ---------- 상태 ---------- */
-const S = { role:null, step:0, data:{ temp:65 } };
+const S = { step:0, data:{ temp:65 } };
 const $ = id => document.getElementById(id);
 const app = $("app");
 
@@ -216,33 +216,16 @@ function renderIntro(){
     <span class="eyebrow">여산초 · 1학기 마무리 워크숍 사전 설문</span>
     <h1>1학기, 어땠나요?</h1>
     <p class="sub">
-      7월 15~16일 워크숍을 알차게 준비하기 위해 여러분의 솔직한 이야기를 먼저 듣습니다.
+      7월 15~16일 교원 워크숍을 알차게 준비하기 위해 선생님들의 솔직한 이야기를 먼저 듣습니다.
       <b>완전 익명</b>이고, 3분이면 충분합니다.
     </p>
-    <div class="role-grid">
-      <div class="role-card" onclick="startSurvey('teacher')">
-        <span class="big">📚</span>
-        <b>교원</b>
-        <p>담임 · 교과 · 관리자 선생님</p>
-      </div>
-      <div class="role-card" onclick="startSurvey('staff')">
-        <span class="big">🤝</span>
-        <b>교육공무직 · 행정</b>
-        <p>행정실 · 급식 · 돌봄 · 시설 등</p>
-      </div>
-    </div>
-    <div class="card" style="background:var(--sun-soft);border-color:#F0E0B0">
-      <p style="font-size:13.5px">
-        💡 올해는 <b>교원이 아닌 교직원분들의 의견도 함께</b> 듣습니다.
-        학교는 다 같이 만드는 거니까요.
-      </p>
-    </div>
+    <button class="btn" onclick="startSurvey()" style="margin-top:28px">시작하기</button>
     <div class="admin-link"><a onclick="renderAdminGate()">결과 보기 (연구부)</a></div>
   </div>`;
 }
 
-function startSurvey(role){
-  S.role = role; S.step = 1;
+function startSurvey(){
+  S.step = 1;
   renderStep();
 }
 
@@ -257,7 +240,7 @@ function progressHTML(){
 function renderStep(){
   if(S.step===1) return renderStep1();
   if(S.step===2) return renderStep2();
-  if(S.step===3) return S.role==='teacher' ? renderStep3T() : renderStep3S();
+  if(S.step===3) return renderStep3T();
   if(S.step===4) return renderStep4();
 }
 
@@ -327,103 +310,69 @@ function saveStep2(){
   S.step = 3; renderStep();
 }
 
-/* STEP 3 — 교원 전용 (붙임2. 업무별 교육과정 운영 분석) */
+/* STEP 3 — 업무별 운영 분석 (붙임2, 지표 단위) */
 const DUTIES = [
-  {name:"교무", idx:"교육활동 보호 · 특수교육 내실화"},
-  {name:"평가·진로·체육", idx:"학력신장 · 진로교육 · 체육교육 내실화"},
-  {name:"도서·환경", idx:"독서교육 강화 · ESG 실천교육"},
-  {name:"연구·전북미래학교", idx:"수업전문성 신장"},
-  {name:"안전·생활·인성", idx:"학교폭력예방·생활교육 · 학생자치 · 인성교육"},
-  {name:"정보", idx:"에듀테크 활용수업 활성화"},
-  {name:"보건", idx:"학생건강 및 보건교육 활성화"}
+  "교육활동 보호","특수교육 내실화","학력신장","진로교육","체육교육",
+  "독서교육","ESG 실천교육(환경)","연구·전북미래학교(수업전문성)",
+  "학교폭력예방·생활교육","학생자치","인성교육","정보(에듀테크)","보건(학생건강)"
 ];
 function renderStep3T(){
-  const sel = S.data.duty || null;
+  S.data.dutySel = S.data.dutySel || [];
+  S.data.dutyData = S.data.dutyData || {};
   app.innerHTML = `
   <div class="fade">
     ${progressHTML()}
-    <h1>업무별 운영 분석 <span style="font-size:14px;color:var(--muted);font-weight:600">교원</span></h1>
-    <p class="sub">여기 응답은 그대로 취합되어 2학기 교육과정과 결과보고에 반영됩니다.</p>
+    <h1>업무별 운영 분석</h1>
+    <p class="sub">담당 업무를 모두 선택하면 아래에 입력칸이 생깁니다. 취합되어 2학기 교육과정과 결과보고에 반영됩니다.</p>
     <div class="card">
-      <div class="q-label">Q5. 선생님의 담당 업무를 골라주세요</div>
+      <div class="q-label">Q5. 담당 업무를 골라주세요</div>
+      <div class="q-hint">복수 선택 가능</div>
       <div class="choices">
         ${DUTIES.map(d=>`
-          <div class="choice radio ${sel===d.name?'sel':''}" onclick="pickDuty(this,'${d.name}')">
-            <span class="mark">●</span>
-            <span><b>${d.name}</b><br><span style="font-size:12px;color:var(--muted)">${d.idx}</span></span>
+          <div class="choice ${S.data.dutySel.includes(d)?'sel':''}" onclick="toggleDuty(this,\`${d}\`)">
+            <span class="mark">✓</span>${d}
           </div>`).join('')}
       </div>
     </div>
-    <div class="card">
-      <div class="q-label">Q6. 1학기 운영 내용</div>
-      <div class="q-hint">운영한 것, 우수했던 점, 보완이 필요한 점</div>
-      <textarea id="q_run" placeholder="예) 수업 나눔 3회 운영함 / 참여율은 좋았으나 시기가 몰린 점은 보완 필요">${S.data.run||''}</textarea>
-    </div>
-    <div class="card">
-      <div class="q-label">Q7. 2학기 반영 내용</div>
-      <div class="q-hint">9월에 딱 하나만 바꾼다면 무엇부터 할지 떠올려보세요</div>
-      <textarea id="q_reflect" placeholder="예) 수업 나눔을 학기 초·중·말로 분산 운영">${S.data.reflect||''}</textarea>
-    </div>
+    <div id="dutyForms">${dutyFormsHTML()}</div>
     <button class="btn" onclick="saveStep3T()">다음</button>
     <button class="btn btn-ghost" onclick="S.step=2;renderStep()">이전으로</button>
   </div>`;
 }
-function pickDuty(el,name){
-  S.data.duty = name;
-  document.querySelectorAll('.choice.radio').forEach(c=>c.classList.remove('sel'));
-  el.classList.add('sel');
+function dutyFormsHTML(){
+  return S.data.dutySel.map(d=>{
+    const v = S.data.dutyData[d] || {run:'',reflect:''};
+    return `
+    <div class="card">
+      <div class="q-label" style="color:var(--accent)">${d}</div>
+      <div class="q-hint" style="margin-top:10px;font-weight:700;color:var(--ink)">1학기 운영 내용</div>
+      <textarea oninput="setDuty(\`${d}\`,'run',this.value)" placeholder="운영한 것, 우수했던 점, 보완이 필요한 점">${v.run}</textarea>
+      <div class="q-hint" style="margin-top:14px;font-weight:700;color:var(--ink)">2학기 반영 내용</div>
+      <textarea oninput="setDuty(\`${d}\`,'reflect',this.value)" placeholder="2학기에 바꾸거나 새로 할 것">${v.reflect}</textarea>
+    </div>`;
+  }).join('');
+}
+function toggleDuty(el,d){
+  const i = S.data.dutySel.indexOf(d);
+  if(i>-1){ S.data.dutySel.splice(i,1); el.classList.remove('sel'); }
+  else{ S.data.dutySel.push(d); el.classList.add('sel'); }
+  $("dutyForms").innerHTML = dutyFormsHTML();
+}
+function setDuty(d,key,val){
+  S.data.dutyData[d] = S.data.dutyData[d] || {run:'',reflect:''};
+  S.data.dutyData[d][key] = val;
 }
 function saveStep3T(){
-  S.data.run = $("q_run").value.trim();
-  S.data.reflect = $("q_reflect").value.trim();
+  // 선택된 업무만 정리해서 저장
+  S.data.duties = S.data.dutySel.map(d=>({
+    name:d,
+    run:(S.data.dutyData[d]?.run||'').trim(),
+    reflect:(S.data.dutyData[d]?.reflect||'').trim()
+  }));
   S.step = 4; renderStep();
 }
 
-/* STEP 3 — 비교원 전용 */
-const HARD_WAYS = ["마감 직전에 급하게 오는 요청","구두로만 전달되는 요청 (기록이 없어요)","퇴근 직전·점심시간 요청","정해진 절차를 건너뛴 요청","요청 배경 설명 없이 '일단 해주세요'","특별히 없음"];
-function renderStep3S(){
-  const sel = S.data.hardWays || [];
-  app.innerHTML = `
-  <div class="fade">
-    ${progressHTML()}
-    <h1>현장의 목소리 <span style="font-size:14px;color:var(--muted);font-weight:600">교육공무직·행정</span></h1>
-    <p class="sub">교실 밖에서 학교를 지켜본 시선이 정말 중요합니다.</p>
-    <div class="card">
-      <div class="q-label">Q5. 교원들이 잘 몰라서 반복되는 요청이나 실수가 있다면?</div>
-      <div class="q-hint">예) 공문 처리 절차, 물품 신청 방법, 시설 사용 규칙 등</div>
-      <textarea id="q_repeat" placeholder="알려주시면 2학기에 안내 자료로 정리하겠습니다">${S.data.repeat||''}</textarea>
-    </div>
-    <div class="card">
-      <div class="q-label">Q6. 업무 요청을 받을 때 힘든 방식은?</div>
-      <div class="q-hint">복수 선택 가능</div>
-      <div class="choices">
-        ${HARD_WAYS.map(w=>`
-          <div class="choice ${sel.includes(w)?'sel':''}" onclick="toggleHard(this,\`${w}\`)">
-            <span class="mark">✓</span>${w}
-          </div>`).join('')}
-      </div>
-    </div>
-    <div class="card">
-      <div class="q-label">Q7. 2학기에 딱 하나 바꿀 수 있다면?<span class="optional">선택</span></div>
-      <textarea id="q_change_s" placeholder="업무 환경, 소통 방식, 무엇이든 좋습니다">${S.data.change||''}</textarea>
-    </div>
-    <button class="btn" onclick="saveStep3S()">다음</button>
-    <button class="btn btn-ghost" onclick="S.step=2;renderStep()">이전으로</button>
-  </div>`;
-}
-function toggleHard(el,w){
-  S.data.hardWays = S.data.hardWays || [];
-  const i = S.data.hardWays.indexOf(w);
-  if(i>-1){ S.data.hardWays.splice(i,1); el.classList.remove('sel'); }
-  else{ S.data.hardWays.push(w); el.classList.add('sel'); }
-}
-function saveStep3S(){
-  S.data.repeat = $("q_repeat").value.trim();
-  S.data.change = $("q_change_s").value.trim();
-  S.step = 4; renderStep();
-}
-
-/* STEP 4 — 유쾌 코너 (공통) */
+/* STEP 4 — 유쾌 코너 */
 const DINNER = ["무조건 고기지요 🥩","시원한 회 한 접시 🐟","면 요리가 진리 🍜","메뉴보다 좋은 자리 배치가 중요합니다","일찍 끝나는 게 최고의 메뉴"];
 function renderStep4(){
   const sel = S.data.dinner || null;
@@ -462,10 +411,11 @@ async function submitSurvey(){
   const btn = $("submitBtn");
   btn.disabled = true; btn.textContent = "제출 중...";
   S.data.cheer = $("q_cheer").value.trim();
+  const {dutySel, dutyData, ...payload} = S.data;
   try{
     await db.collection(COLLECTION).add({
-      role: S.role,
-      ...S.data,
+      role: 'teacher',
+      ...payload,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     renderDone();
@@ -545,8 +495,7 @@ async function loadResults(){
 }
 
 function renderResults(docs){
-  const teachers = docs.filter(d=>d.role==='teacher');
-  const staff = docs.filter(d=>d.role==='staff');
+  const teachers = docs;
   const avgTemp = docs.length ? Math.round(docs.reduce((s,d)=>s+(d.temp||0),0)/docs.length) : 0;
 
   // 석식 집계
@@ -556,24 +505,18 @@ function renderResults(docs){
   const maxDinner = Math.max(1,...Object.values(dinnerCount));
 
   const respHTML = docs.map(d=>{
-    const isT = d.role==='teacher';
     const items = [];
     if(d.good) items.push(["좋았던 것 · 계속하고 싶은 것",d.good]);
     if(d.remove) items.push(["없어져도 되는 일",d.remove]);
     if(d.coop) items.push(["협조가 아쉬웠던 순간",d.coop]);
-    if(isT){
-      if(d.duty) items.push(["담당 업무",d.duty]);
-      if(d.run) items.push(["1학기 운영 내용",d.run]);
-      if(d.reflect) items.push(["2학기 반영 내용",d.reflect]);
-    }else{
-      if(d.repeat) items.push(["반복되는 요청·실수",d.repeat]);
-      if(d.hardWays?.length) items.push(["힘든 요청 방식",d.hardWays.join(" / ")]);
-    }
+    if(d.duties?.length) d.duties.forEach(du=>{
+      if(du.run) items.push([`[${du.name}] 1학기 운영 내용`,du.run]);
+      if(du.reflect) items.push([`[${du.name}] 2학기 반영 내용`,du.reflect]);
+    });
     if(d.change) items.push(["9월에 딱 하나 바꾼다면",d.change]);
     if(d.cheer) items.push(["응원 한마디",d.cheer]);
     return `
     <div class="resp-card">
-      <span class="tag ${isT?'':'staff'}">${isT?'교원':'교육공무직·행정'}</span>
       <span class="temp-mini">${d.temp??'-'}°C</span>
       ${items.map(([k,v])=>`<div class="resp-item"><div class="k">${k}</div><div class="v">${escapeHTML(v)}</div></div>`).join('')||'<div class="resp-item"><div class="v" style="color:var(--muted)">서술 응답 없음</div></div>'}
     </div>`;
@@ -583,9 +526,8 @@ function renderResults(docs){
   <div class="fade">
     <span class="eyebrow">연구부 전용 · 실시간</span>
     <h1>설문 결과</h1>
-    <div class="stat-grid">
+    <div class="stat-grid" style="grid-template-columns:1fr 1fr">
       <div class="stat"><div class="num">${docs.length}</div><div class="lbl">전체 응답</div></div>
-      <div class="stat"><div class="num">${teachers.length} / ${staff.length}</div><div class="lbl">교원 / 비교원</div></div>
       <div class="stat"><div class="num">${avgTemp}°C</div><div class="lbl">평균 체감온도</div></div>
     </div>
     <div class="card">
@@ -599,11 +541,14 @@ function renderResults(docs){
     </div>
     <h1 style="font-size:19px;margin-top:28px">업무별 모아보기 <span style="font-size:12.5px;color:var(--muted);font-weight:600">결과보고 취합용</span></h1>
     ${DUTIES.map(du=>{
-      const list = teachers.filter(t=>t.duty===du.name && (t.run||t.reflect));
-      if(!list.length) return '';
+      const entries = [];
+      docs.forEach(d=>(d.duties||[]).forEach(x=>{
+        if(x.name===du && (x.run||x.reflect)) entries.push(x);
+      }));
+      if(!entries.length) return '';
       return `<div class="resp-card">
-        <span class="tag">${du.name}</span>
-        ${list.map(t=>`
+        <span class="tag">${du}</span>
+        ${entries.map(t=>`
           ${t.run?`<div class="resp-item"><div class="k">1학기 운영 내용</div><div class="v">${escapeHTML(t.run)}</div></div>`:''}
           ${t.reflect?`<div class="resp-item"><div class="k">2학기 반영 내용</div><div class="v">${escapeHTML(t.reflect)}</div></div>`:''}
         `).join('')}
