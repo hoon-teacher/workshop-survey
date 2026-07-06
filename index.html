@@ -499,7 +499,7 @@ async function loadResults(){
   app.innerHTML = `<p class="sub" style="text-align:center;margin-top:60px">불러오는 중...</p>`;
   try{
     const snap = await db.collection(COLLECTION).orderBy("createdAt","desc").get();
-    const docs = snap.docs.map(d=>d.data());
+    const docs = snap.docs.map(d=>({_id:d.id, ...d.data()}));
     renderResults(docs);
   }catch(e){
     app.innerHTML = `<p class="sub" style="text-align:center;margin-top:60px">불러오기 실패: ${e.message}</p>
@@ -530,6 +530,7 @@ function renderResults(docs){
     <div class="resp-card">
       <span class="temp-mini">${d.weather ? wEmoji(d.weather)+' '+d.weather : ''}</span>
       ${items.map(([k,v])=>`<div class="resp-item"><div class="k">${k}</div><div class="v">${escapeHTML(v)}</div></div>`).join('')||'<div class="resp-item"><div class="v" style="color:var(--muted)">서술 응답 없음</div></div>'}
+      <button onclick="deleteResp('${d._id}')" style="margin-top:12px;border:1px solid var(--line);background:#fff;color:#C0453B;font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:9px;cursor:pointer">이 응답 삭제</button>
     </div>`;
   }).join('');
 
@@ -578,6 +579,15 @@ function renderResults(docs){
     ${respHTML || '<p class="sub">아직 응답이 없습니다.</p>'}
     <button class="btn btn-ghost" onclick="renderIntro()" style="margin-top:24px">처음으로</button>
   </div>`;
+}
+
+async function deleteResp(id){
+  if(!confirm("이 응답을 삭제할까요? 되돌릴 수 없습니다.")) return;
+  try{
+    await db.collection(COLLECTION).doc(id).delete();
+    _submittedCache = null;
+    loadResults();
+  }catch(e){ alert("삭제 실패: " + e.message); }
 }
 
 function escapeHTML(s){
