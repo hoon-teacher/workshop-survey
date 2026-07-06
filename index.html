@@ -311,11 +311,18 @@ function saveStep2(){
   S.step = 3; renderStep();
 }
 
-/* STEP 3 — 업무별 운영 분석 (붙임2, 지표 단위) */
+/* STEP 3 — 업무별 운영 분석 (2026 학교평가 지표) */
 const DUTIES = [
-  "교육활동 보호","특수교육 내실화","학력신장","진로교육","체육교육",
-  "독서교육","ESG 실천교육(환경)","연구·전북미래학교(수업전문성)",
-  "학교폭력예방·생활교육","학생자치","인성교육","정보(에듀테크)","보건(학생건강)"
+  {n:"① 독서교육 강화", h:"교내 독서 프로그램(독서캠프·골든벨·아침 10분 독서 등) 운영과 참여 실적"},
+  {n:"② 수업 전문성 신장", h:"학부모 대상 수업공개, 동료교원 수업나눔·협의회 실적"},
+  {n:"③ 학력신장 노력", h:"학력신장 프로그램(교과보충·학습플래너·학습코칭 등) 운영과 참여 실적"},
+  {n:"④ AI교육 활성화", h:"교원 AI(디지털 기반 교육혁신) 연수 이수, AI 활용 수업"},
+  {n:"⑤ 교육활동 보호", h:"학생·보호자·교직원 대상 교육활동 침해행위 예방교육 실시 내용"},
+  {n:"⑥ 민주시민교육 강화", h:"헌법교육 중심 민주시민교육 운영 실적 (참여형·토론형 수업, 체험교육 등)"},
+  {n:"⑦ 생태전환교육(탄소중립)", h:"탄소중립 실천 약속 도전 프로그램 운영과 참여 실적"},
+  {n:"⑧ 창의적인 교육과정 운영", h:"선택 지표(미래) · 학교 특색 교육과정 운영 내용"},
+  {n:"⑨ 기초학력 책임지도 내실화", h:"선택 지표(책임) · 기초학력 진단·보정, 책임지도 운영 내용"},
+  {n:"⑩ 관계중심 생활교육 강화", h:"선택 지표(안전) · 관계회복 중심 생활교육 운영 내용"}
 ];
 function renderStep3T(){
   S.data.dutySel = S.data.dutySel || [];
@@ -330,8 +337,8 @@ function renderStep3T(){
       <div class="q-hint">복수 선택 가능 · <span style="color:var(--accent);font-weight:600">작성 완료</span> 표시는 다른 선생님이 이미 작성한 업무입니다</div>
       <div class="choices">
         ${DUTIES.map(d=>`
-          <div class="choice ${S.data.dutySel.includes(d)?'sel':''}" data-duty="${d}" onclick="toggleDuty(this,\`${d}\`)">
-            <span class="mark">✓</span><span>${d}</span>
+          <div class="choice ${S.data.dutySel.includes(d.n)?'sel':''}" data-duty="${d.n}" onclick="toggleDuty(this,\`${d.n}\`)">
+            <span class="mark">✓</span><span>${d.n}</span>
             <span class="done-chip hidden">작성 완료</span>
           </div>`).join('')}
       </div>
@@ -364,13 +371,15 @@ async function getSubmittedDuties(){
 function dutyFormsHTML(){
   return S.data.dutySel.map(d=>{
     const v = S.data.dutyData[d] || {run:'',reflect:''};
+    const hint = (DUTIES.find(x=>x.n===d)||{}).h || '';
     return `
     <div class="card">
       <div class="q-label" style="color:var(--accent)">${d}</div>
+      ${hint?`<div class="q-hint">💡 ${hint}</div>`:''}
       <div class="q-hint" style="margin-top:10px;font-weight:700;color:var(--ink)">1학기 운영 내용</div>
-      <textarea oninput="setDuty(\`${d}\`,'run',this.value)" placeholder="운영한 것, 우수했던 점, 보완이 필요한 점">${v.run}</textarea>
+      <textarea oninput="setDuty(\`${d}\`,'run',this.value)" placeholder="운영한 것, 우수했던 점, 보완이 필요한 점 (1~2줄이면 충분해요)">${v.run}</textarea>
       <div class="q-hint" style="margin-top:14px;font-weight:700;color:var(--ink)">2학기 반영 내용</div>
-      <textarea oninput="setDuty(\`${d}\`,'reflect',this.value)" placeholder="2학기에 바꾸거나 새로 할 것">${v.reflect}</textarea>
+      <textarea oninput="setDuty(\`${d}\`,'reflect',this.value)" placeholder="2학기에 바꾸거나 새로 할 것 (1~2줄이면 충분해요)">${v.reflect}</textarea>
     </div>`;
   }).join('');
 }
@@ -546,7 +555,7 @@ function renderResults(docs){
         ${(()=>{
           const done=new Set();
           docs.forEach(d=>(d.duties||[]).forEach(x=>{if(x.run||x.reflect)done.add(x.name)}));
-          return DUTIES.map(d=>`<span class="status-chip ${done.has(d)?'on':'off'}">${done.has(d)?'✓ ':''}${d}</span>`).join('');
+          return DUTIES.map(d=>`<span class="status-chip ${done.has(d.n)?'on':'off'}">${done.has(d.n)?'✓ ':''}${d.n}</span>`).join('');
         })()}
       </div>
     </div>
@@ -554,11 +563,11 @@ function renderResults(docs){
     ${DUTIES.map(du=>{
       const entries = [];
       docs.forEach(d=>(d.duties||[]).forEach(x=>{
-        if(x.name===du && (x.run||x.reflect)) entries.push(x);
+        if(x.name===du.n && (x.run||x.reflect)) entries.push(x);
       }));
       if(!entries.length) return '';
       return `<div class="resp-card">
-        <span class="tag">${du}</span>
+        <span class="tag">${du.n}</span>
         ${entries.map(t=>`
           ${t.run?`<div class="resp-item"><div class="k">1학기 운영 내용</div><div class="v">${escapeHTML(t.run)}</div></div>`:''}
           ${t.reflect?`<div class="resp-item"><div class="k">2학기 반영 내용</div><div class="v">${escapeHTML(t.reflect)}</div></div>`:''}
