@@ -162,6 +162,10 @@ input[type=range]::-moz-range-thumb{
 .hidden{display:none}
 .fade{animation:fade .35s ease}
 .center-screen{min-height:calc(100vh - 140px);display:flex;flex-direction:column;justify-content:center}
+.done-chip{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:3px 9px;border-radius:99px;margin-left:auto;flex-shrink:0}
+.status-chip{display:inline-block;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;margin:3px 3px 0 0}
+.status-chip.on{background:var(--accent-soft);color:var(--accent)}
+.status-chip.off{background:#F3F1EB;color:#B0AA9C}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (max-width:420px){
   h1{font-size:23px}
@@ -323,11 +327,12 @@ function renderStep3T(){
     <p class="sub">담당 업무를 모두 선택하면 아래에 입력칸이 생깁니다. 취합되어 2학기 교육과정과 결과보고에 반영됩니다.</p>
     <div class="card">
       <div class="q-label">Q5. 담당 업무를 골라주세요</div>
-      <div class="q-hint">복수 선택 가능</div>
+      <div class="q-hint">복수 선택 가능 · <span style="color:var(--accent);font-weight:600">작성 완료</span> 표시는 다른 선생님이 이미 작성한 업무입니다</div>
       <div class="choices">
         ${DUTIES.map(d=>`
-          <div class="choice ${S.data.dutySel.includes(d)?'sel':''}" onclick="toggleDuty(this,\`${d}\`)">
-            <span class="mark">✓</span>${d}
+          <div class="choice ${S.data.dutySel.includes(d)?'sel':''}" data-duty="${d}" onclick="toggleDuty(this,\`${d}\`)">
+            <span class="mark">✓</span><span>${d}</span>
+            <span class="done-chip hidden">작성 완료</span>
           </div>`).join('')}
       </div>
     </div>
@@ -335,6 +340,26 @@ function renderStep3T(){
     <button class="btn" onclick="saveStep3T()">다음</button>
     <button class="btn btn-ghost" onclick="S.step=2;renderStep()">이전으로</button>
   </div>`;
+  markSubmittedDuties();
+}
+async function markSubmittedDuties(){
+  try{
+    const done = await getSubmittedDuties();
+    document.querySelectorAll('[data-duty]').forEach(el=>{
+      if(done.has(el.dataset.duty)) el.querySelector('.done-chip').classList.remove('hidden');
+    });
+  }catch(e){ /* 표시 실패해도 설문엔 지장 없음 */ }
+}
+let _submittedCache = null;
+async function getSubmittedDuties(){
+  if(_submittedCache) return _submittedCache;
+  const snap = await db.collection(COLLECTION).get();
+  const s = new Set();
+  snap.forEach(doc=>{
+    (doc.data().duties||[]).forEach(x=>{ if(x.run||x.reflect) s.add(x.name); });
+  });
+  _submittedCache = s;
+  return s;
 }
 function dutyFormsHTML(){
   return S.data.dutySel.map(d=>{
@@ -514,6 +539,16 @@ function renderResults(docs){
           <div class="bar-track"><div class="bar-fill" style="width:${wCount[w.n]/maxW*100}%"></div></div>
           <div class="cnt">${wCount[w.n]}</div>
         </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="q-label" style="margin-bottom:4px">업무별 작성 현황 <span style="font-size:12.5px;color:var(--muted);font-weight:600">${(()=>{const s=new Set();docs.forEach(d=>(d.duties||[]).forEach(x=>{if(x.run||x.reflect)s.add(x.name)}));return s.size})()} / ${DUTIES.length} 작성</span></div>
+      <div style="margin-top:8px">
+        ${(()=>{
+          const done=new Set();
+          docs.forEach(d=>(d.duties||[]).forEach(x=>{if(x.run||x.reflect)done.add(x.name)}));
+          return DUTIES.map(d=>`<span class="status-chip ${done.has(d)?'on':'off'}">${done.has(d)?'✓ ':''}${d}</span>`).join('');
+        })()}
+      </div>
     </div>
     <h1 style="font-size:19px;margin-top:28px">업무별 모아보기 <span style="font-size:12.5px;color:var(--muted);font-weight:600">결과보고 취합용</span></h1>
     ${DUTIES.map(du=>{
