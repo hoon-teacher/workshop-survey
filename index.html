@@ -161,6 +161,7 @@ input[type=range]::-moz-range-thumb{
 .resp-item .v{font-size:14px;margin-top:2px;white-space:pre-wrap}
 .hidden{display:none}
 .fade{animation:fade .35s ease}
+.center-screen{min-height:calc(100vh - 140px);display:flex;flex-direction:column;justify-content:center}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (max-width:420px){
   h1{font-size:23px}
@@ -195,25 +196,24 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ---------- 상태 ---------- */
-const S = { step:0, data:{ temp:65 } };
+const S = { step:0, data:{} };
 const $ = id => document.getElementById(id);
 const app = $("app");
 
-/* ---------- 온도 반응 ---------- */
-function tempFace(t){
-  if(t>=90) return ["🔥","이렇게까지 뜨거웠다고요? 대단합니다"];
-  if(t>=75) return ["😊","꽤 괜찮은 한 학기였군요"];
-  if(t>=55) return ["🙂","무난하게 잘 지나갔네요"];
-  if(t>=35) return ["😮‍💨","조금 지치는 학기였나 봐요"];
-  if(t>=15) return ["🥶","춥네요... 2학기엔 따뜻하게 만들어봐요"];
-  return ["🧊","일단 방학부터 시급합니다"];
-}
+/* ---------- 1학기 날씨 ---------- */
+const WEATHER = [
+  {e:"☀️", n:"맑음", d:"순조롭게 흘러간 한 학기"},
+  {e:"🌤️", n:"구름 조금", d:"대체로 괜찮았어요"},
+  {e:"☁️", n:"흐림", d:"그럭저럭 버텼습니다"},
+  {e:"🌧️", n:"비", d:"힘든 일이 많았어요"},
+  {e:"⛈️", n:"폭풍", d:"말잇못... 방학이 시급합니다"}
+];
 
 /* ---------- 화면: 시작 ---------- */
 function renderIntro(){
   app.innerHTML = `
-  <div class="fade">
-    <span class="eyebrow">여산초 · 1학기 마무리 워크숍 사전 설문</span>
+  <div class="fade center-screen">
+    <span class="eyebrow" style="align-self:flex-start">여산초 · 1학기 마무리 워크숍 사전 설문</span>
     <h1>1학기, 어땠나요?</h1>
     <p class="sub">
       7월 15~16일 교원 워크숍을 알차게 준비하기 위해 선생님들의 솔직한 이야기를 먼저 듣습니다.
@@ -244,21 +244,22 @@ function renderStep(){
   if(S.step===4) return renderStep4();
 }
 
-/* STEP 1 — 1학기 온도 */
+/* STEP 1 — 1학기 날씨 */
 function renderStep1(){
+  const sel = S.data.weather || null;
   app.innerHTML = `
   <div class="fade">
     ${progressHTML()}
     <h1>1학기 돌아보기</h1>
     <div class="card">
-      <div class="q-label">Q1. 나의 1학기 체감 온도는?</div>
-      <div class="q-hint">직감으로 쓱 밀어주세요</div>
-      <div class="temp-wrap">
-        <div class="temp-val"><span id="tv">${S.data.temp}</span><small>°C</small></div>
-        <span class="temp-emoji" id="te"></span>
-        <div class="temp-desc" id="td"></div>
-        <input type="range" min="0" max="100" value="${S.data.temp}" id="tempSlider">
-        <div class="temp-scale"><span>0°C 혹한기</span><span>100°C 열정 만렙</span></div>
+      <div class="q-label">Q1. 나의 1학기를 날씨로 표현하면?</div>
+      <div class="choices">
+        ${WEATHER.map(w=>`
+          <div class="choice radio ${sel===w.n?'sel':''}" onclick="pickWeather(this,'${w.n}')">
+            <span class="mark">●</span>
+            <span style="font-size:22px">${w.e}</span>
+            <span><b>${w.n}</b><br><span style="font-size:12.5px;color:var(--muted)">${w.d}</span></span>
+          </div>`).join('')}
       </div>
     </div>
     <div class="card">
@@ -268,17 +269,13 @@ function renderStep1(){
     </div>
     <button class="btn" onclick="saveStep1()">다음</button>
   </div>`;
-  const slider = $("tempSlider");
-  const update = ()=>{
-    const t = +slider.value;
-    $("tv").textContent = t;
-    const [e,d] = tempFace(t);
-    $("te").textContent = e; $("td").textContent = d;
-  };
-  slider.addEventListener("input", update); update();
+}
+function pickWeather(el,n){
+  S.data.weather = n;
+  document.querySelectorAll('.choice.radio').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
 }
 function saveStep1(){
-  S.data.temp = +$("tempSlider").value;
   S.data.good = $("q_good").value.trim();
   S.step = 2; renderStep();
 }
@@ -477,8 +474,12 @@ async function loadResults(){
 }
 
 function renderResults(docs){
-  const teachers = docs;
-  const avgTemp = docs.length ? Math.round(docs.reduce((s,d)=>s+(d.temp||0),0)/docs.length) : 0;
+  // 날씨 집계
+  const wCount = {};
+  WEATHER.forEach(w=>wCount[w.n]=0);
+  docs.forEach(d=>{ if(d.weather && wCount[d.weather]!==undefined) wCount[d.weather]++; });
+  const maxW = Math.max(1,...Object.values(wCount));
+  const wEmoji = n => (WEATHER.find(w=>w.n===n)||{}).e || '';
 
   const respHTML = docs.map(d=>{
     const items = [];
@@ -493,7 +494,7 @@ function renderResults(docs){
     if(d.cheer) items.push(["응원 한마디",d.cheer]);
     return `
     <div class="resp-card">
-      <span class="temp-mini">${d.temp??'-'}°C</span>
+      <span class="temp-mini">${d.weather ? wEmoji(d.weather)+' '+d.weather : ''}</span>
       ${items.map(([k,v])=>`<div class="resp-item"><div class="k">${k}</div><div class="v">${escapeHTML(v)}</div></div>`).join('')||'<div class="resp-item"><div class="v" style="color:var(--muted)">서술 응답 없음</div></div>'}
     </div>`;
   }).join('');
@@ -502,9 +503,17 @@ function renderResults(docs){
   <div class="fade">
     <span class="eyebrow">연구부 전용 · 실시간</span>
     <h1>설문 결과</h1>
-    <div class="stat-grid" style="grid-template-columns:1fr 1fr">
+    <div class="stat-grid" style="grid-template-columns:1fr">
       <div class="stat"><div class="num">${docs.length}</div><div class="lbl">전체 응답</div></div>
-      <div class="stat"><div class="num">${avgTemp}°C</div><div class="lbl">평균 체감온도</div></div>
+    </div>
+    <div class="card">
+      <div class="q-label" style="margin-bottom:4px">1학기 날씨 분포</div>
+      ${WEATHER.map(w=>`
+        <div class="bar-row">
+          <div class="name">${w.e} ${w.n}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${wCount[w.n]/maxW*100}%"></div></div>
+          <div class="cnt">${wCount[w.n]}</div>
+        </div>`).join('')}
     </div>
     <h1 style="font-size:19px;margin-top:28px">업무별 모아보기 <span style="font-size:12.5px;color:var(--muted);font-weight:600">결과보고 취합용</span></h1>
     ${DUTIES.map(du=>{
